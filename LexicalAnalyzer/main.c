@@ -13,7 +13,7 @@
 #define NUMBER_MAX_LENGTH 5
 #define DEFAULT_SIZE 500
 
-void ReadFile(FILE* input, int fileSize);
+char* ReadFile(FILE* input, int fileSize, char *code);
 void CheckForComment(int fileSize, FILE* cleanInput);
 
 typedef enum {
@@ -26,14 +26,14 @@ typedef enum {
 } token_type;
 
 
-
-int fileSize;
-char *code;
+char *code, *cleanCode;
 
 int main(int argc, const char * argv[]) {
     
     // File pointers
     FILE *input, *cleanInput, *lexemeTable, *lexemeList;
+    
+    int fileSize, cleanFileSize;
     
     // Open input file
     input = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/input.txt", "r");
@@ -58,7 +58,7 @@ int main(int argc, const char * argv[]) {
     printf("%d\n", fileSize);
     
     // Read file into array
-    ReadFile(input, fileSize);
+    ReadFile(input, fileSize, code);
     
     // Close file after use
     fclose(input);
@@ -75,26 +75,48 @@ int main(int argc, const char * argv[]) {
     // Close file after use
     fclose(cleanInput);
     
-    // Free memory of allocated array
+    // Open clean input for reading
+    cleanInput = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/cleaninput.txt", "r");
+    
+    // Read to file end for length
+    fseek(cleanInput, 0L, SEEK_END);
+    cleanFileSize = ftell(cleanInput) + 1;
+    
+    // Allocate memory for size of file
+    cleanCode = malloc(cleanFileSize*sizeof(char));
+    
+    // Error checking
+    if (cleanCode == NULL) {
+        printf("Error allocating memory.\n");
+        return 1;
+    }
+    
+    // Reset pointer to beginning of file for scanning
+    fseek(cleanInput, 0L, SEEK_SET);
+    
+    // Read file into array
+    ReadFile(cleanInput, cleanFileSize, cleanCode);
+    
+    // Free memory of allocated arrays
     free(code);
+    free(cleanCode);
     
     return 0;
 }
 
 
-void ReadFile(FILE* input, int fileSize) {
+char* ReadFile(FILE* input, int fileSize, char *code) {
     int i = 0;
-    while (i < fileSize-1) {
+    while (i < fileSize) {
         char c;
         c = fgetc(input);
         code[i] = (char)c;
-        //fscanf(input, "%c", code[i]);
-        printf("%c", code[i]);
-        //putchar(code[i]);
+        if (code[i] != '\377') {
+            printf("%c", code[i]);
+        }
         i++;
-        //printf("%c", pu code[i]);
-        
     }
+    return code;
 }
 
 void CheckForComment(int fileSize, FILE* cleanInput)
