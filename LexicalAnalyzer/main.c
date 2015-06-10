@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #define IDENTIFIER_MAX_LENGTH 11
 #define NUMBER_MAX_LENGTH 5
@@ -15,24 +17,65 @@
 
 char* ReadFile(FILE* input, int fileSize, char *code);
 void CheckForComment(int fileSize, FILE* cleanInput);
+void ReadTokens(int cleanFileSize);
+void Tokens(int cleanFileSize);
 
 typedef enum {
-    nulsym = 1, identsym, numbersym, plussym, minussym,
-    multsym,  slashsym, oddsym, eqsym, neqsym, lessym, leqsym,
-    gtrsym, geqsym, lparentsym, rparentsym, commasym, semicolonsym,
-    periodsym, becomessym, beginsym, endsym, ifsym, thensym,
-    whilesym, dosym, callsym, constsym, varsym, procsym, writesym,
-    readsym , elsesym
+    nulsym = 1, identsym = 2, numbersym = 3, plussym = 4, minussym = 5,
+    multsym = 6,  slashsym = 7, oddsym = 8, eqsym = 9, neqsym = 10, lessym = 11, leqsym = 12,
+    gtrsym = 13, geqsym = 14, lparentsym = 15, rparentsym = 16, commasym = 17, semicolonsym = 18,
+    periodsym = 19, becomessym = 20, beginsym = 21, endsym = 22, ifsym = 23, thensym = 24,
+    whilesym = 25, dosym = 26, callsym = 27, constsym = 28, varsym = 29, procsym = 30, writesym = 31,
+    readsym = 32, elsesym = 33
 } token_type;
 
+typedef char* string;
+
+typedef struct {
+    string lexeme;
+    int tokenType;
+}tokenTable;
 
 char *code, *cleanCode;
+string reservedWords[14];
+char specialSymbols[13];
+
 
 int main(int argc, const char * argv[]) {
+    
+    reservedWords[0] = "const";
+    reservedWords[1] = "var";
+    reservedWords[2] = "procedure";
+    reservedWords[3] = "call";
+    reservedWords[4] = "begin";
+    reservedWords[5] = "end";
+    reservedWords[6] = "if";
+    reservedWords[7] = "then";
+    reservedWords[8] = "else";
+    reservedWords[9] = "while";
+    reservedWords[10] = "do";
+    reservedWords[11] = "read";
+    reservedWords[12] = "write";
+    reservedWords[13] = "odd";
+    
+    specialSymbols[0] = '+';
+    specialSymbols[1] = '-';
+    specialSymbols[2] = '*';
+    specialSymbols[3] = '/';
+    specialSymbols[4] = '(';
+    specialSymbols[5] = ')';
+    specialSymbols[6] = '=';
+    specialSymbols[7] = ',';
+    specialSymbols[8] = '.';
+    specialSymbols[9] = '<';
+    specialSymbols[10] = '>';
+    specialSymbols[11] = ';';
+    specialSymbols[12] = ':';
     
     // File pointers
     FILE *input, *cleanInput, *lexemeTable, *lexemeList;
     
+    // File sizes
     int fileSize, cleanFileSize;
     
     // Open input file
@@ -97,6 +140,10 @@ int main(int argc, const char * argv[]) {
     // Read file into array
     ReadFile(cleanInput, cleanFileSize, cleanCode);
     
+    // Read tokens
+    Tokens(cleanFileSize);
+    //ReadTokens(cleanFileSize);
+    
     // Free memory of allocated arrays
     free(code);
     free(cleanCode);
@@ -104,7 +151,7 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
-
+// Function to read files into arrays
 char* ReadFile(FILE* input, int fileSize, char *code) {
     int i = 0;
     while (i < fileSize) {
@@ -119,11 +166,11 @@ char* ReadFile(FILE* input, int fileSize, char *code) {
     return code;
 }
 
-void CheckForComment(int fileSize, FILE* cleanInput)
-{
+// Return clean input file without comments
+void CheckForComment(int fileSize, FILE* cleanInput) {
     int state = 1;
     char c;
-    for (int i=0; i<fileSize; i++) {
+    for (int i=0; i<fileSize-1; i++) {
         c = code[i];
         switch (state) {
             case 1:
@@ -164,6 +211,36 @@ void CheckForComment(int fileSize, FILE* cleanInput)
     }
 }
 
+void ReadTokens(int cleanFileSize) {
+    char ch;
+    int savedIndex;
+    for (int i=0; i<cleanFileSize; i++)
+    {
+        ch = cleanCode[i];
+        
+        if (ch == '\n' | ch == '\t' | ch == ' ' | ch == '\377') {
+            break;
+            savedIndex = i + 1;
+        }
+        else {
+        }
+    }
+}
+
+void Tokens(int cleanFileSize) {
+    printf("\n");
+    int i = 0;
+    char tempString[IDENTIFIER_MAX_LENGTH+1] = "";
+    char ch = cleanCode[i];
+    while (ch != ' ' && ch != '\0' && ch != '\n') {
+        int length = strlen(tempString);
+        tempString[length] =  ch;
+        tempString[length+1] = '\0';
+        i++;
+        ch = cleanCode[i];
+    }
+    printf("%s", tempString);
+}
 
 
 
