@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <string.h>
 
 #define IDENTIFIER_MAX_LENGTH 11
@@ -18,11 +17,13 @@
 char* ReadFile(FILE* input, int fileSize, char *code);
 void CheckForComment(int fileSize, FILE* cleanInput);
 void ReadTokens(int cleanFileSize);
-void Tokens(int cleanFileSize);
+int Tokens(int cleanFileSize, int *i, int j);
+int TempStringFunc(char tempString[], int j);
+void GetTokenType(int j);
 
 typedef enum {
     nulsym = 1, identsym = 2, numbersym = 3, plussym = 4, minussym = 5,
-    multsym = 6,  slashsym = 7, oddsym = 8, eqsym = 9, neqsym = 10, lessym = 11, leqsym = 12,
+    multsym = 6,  slashsym = 7, oddsym = 8, eqlsym = 9, neqsym = 10, lessym = 11, leqsym = 12,
     gtrsym = 13, geqsym = 14, lparentsym = 15, rparentsym = 16, commasym = 17, semicolonsym = 18,
     periodsym = 19, becomessym = 20, beginsym = 21, endsym = 22, ifsym = 23, thensym = 24,
     whilesym = 25, dosym = 26, callsym = 27, constsym = 28, varsym = 29, procsym = 30, writesym = 31,
@@ -32,13 +33,14 @@ typedef enum {
 typedef char* string;
 
 typedef struct {
-    string lexeme;
+    char lexeme[IDENTIFIER_MAX_LENGTH];
     int tokenType;
 }tokenTable;
 
 char *code, *cleanCode;
 string reservedWords[14];
 char specialSymbols[13];
+tokenTable *table;
 
 
 int main(int argc, const char * argv[]) {
@@ -72,6 +74,7 @@ int main(int argc, const char * argv[]) {
     specialSymbols[11] = ';';
     specialSymbols[12] = ':';
     
+    
     // File pointers
     FILE *input, *cleanInput, *lexemeTable, *lexemeList;
     
@@ -83,7 +86,7 @@ int main(int argc, const char * argv[]) {
     
     // Read to file end for length of file
     fseek(input, 0L, SEEK_END);
-    fileSize = ftell(input) + 1;
+    fileSize = (int)ftell(input) + 1;
     
     // Allocate memory for size of file
     code = malloc(fileSize*sizeof(char));
@@ -98,7 +101,7 @@ int main(int argc, const char * argv[]) {
     fseek(input, 0L, SEEK_SET);
     
     // Debugging code
-    printf("%d\n", fileSize);
+    //printf("%d\n", fileSize);
     
     // Read file into array
     ReadFile(input, fileSize, code);
@@ -123,7 +126,7 @@ int main(int argc, const char * argv[]) {
     
     // Read to file end for length
     fseek(cleanInput, 0L, SEEK_END);
-    cleanFileSize = ftell(cleanInput) + 1;
+    cleanFileSize = (int)ftell(cleanInput) + 1;
     
     // Allocate memory for size of file
     cleanCode = malloc(cleanFileSize*sizeof(char));
@@ -134,6 +137,14 @@ int main(int argc, const char * argv[]) {
         return 1;
     }
     
+    // Allocate memory for token table
+    table = malloc(cleanFileSize*sizeof(tokenTable));
+    
+    // Error checking
+    if (table == NULL) {
+        printf("Error allocating memory.\n");
+    }
+    
     // Reset pointer to beginning of file for scanning
     fseek(cleanInput, 0L, SEEK_SET);
     
@@ -141,8 +152,59 @@ int main(int argc, const char * argv[]) {
     ReadFile(cleanInput, cleanFileSize, cleanCode);
     
     // Read tokens
-    Tokens(cleanFileSize);
-    //ReadTokens(cleanFileSize);
+    int i = 0, j = 0;
+    printf("\n");
+    while (i < cleanFileSize) {
+        j = Tokens(cleanFileSize, &i, j);
+        i++;
+    }
+    
+    // Get token syms
+    GetTokenType(j);
+    
+    // Open files for writing
+    lexemeTable = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemetable.txt", "w");
+    lexemeList = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemeList.txt", "w");
+    
+    // Write to lexeme table file
+    fprintf(lexemeTable, "lexeme    token type\n");
+    for (int k=0; k<j; k++) {
+        fprintf(lexemeTable, "%s", table[k].lexeme);
+        fprintf(lexemeTable, "%10d", table[k].tokenType);
+        fprintf(lexemeTable, "\n");
+    }
+    
+    // Write to lexeme list
+    for (int k=0; k<j; k++) {
+        if (table[k].tokenType == 2) {
+            fprintf(lexemeList, "%d %s ", table[k].tokenType, table[k].lexeme);
+        }
+        else {
+            fprintf(lexemeList, "%d ", table[k].tokenType);
+        }
+    }
+    
+    // Close files
+    fclose(lexemeTable);
+    fclose(lexemeList);
+    
+    printf("lexeme    token type\n");
+    for (int k=0; k<j; k++) {
+        printf("%s", table[k].lexeme);
+        printf("%10d", table[k].tokenType);
+        printf("\n");
+    }
+    
+    printf("\n");
+    for (int k=0; k<j; k++) {
+        if (table[k].tokenType == 2) {
+            printf("%d %s ", table[k].tokenType, table[k].lexeme);
+        }
+        else {
+            printf("%d ", table[k].tokenType);
+        }
+    }
+
     
     // Free memory of allocated arrays
     free(code);
@@ -227,22 +289,267 @@ void ReadTokens(int cleanFileSize) {
     }
 }
 
-void Tokens(int cleanFileSize) {
-    printf("\n");
-    int i = 0;
+int Tokens(int cleanFileSize, int *i, int j) {
+    //printf("\n");
     char tempString[IDENTIFIER_MAX_LENGTH+1] = "";
-    char ch = cleanCode[i];
-    while (ch != ' ' && ch != '\0' && ch != '\n') {
-        int length = strlen(tempString);
-        tempString[length] =  ch;
-        tempString[length+1] = '\0';
-        i++;
-        ch = cleanCode[i];
+    char ch = cleanCode[*i];
+    while (ch != ' ' && ch != '\0' && ch != '\n' && ch != '\377') {
+        if (ch == specialSymbols[0] || ch == specialSymbols[1] || ch == specialSymbols[2] ||
+            ch == specialSymbols[3] || ch == specialSymbols[4] || ch == specialSymbols[5] ||
+            ch == specialSymbols[7] || ch == specialSymbols[8] || ch == specialSymbols[11]) {
+            table[j].lexeme[0] = ch;
+            j++;
+            //TempStringFunc(tempString);
+        }
+        else if (ch == specialSymbols[9] || ch == specialSymbols[10] || ch == specialSymbols[12]) {
+            table[j].lexeme[0] = ch;
+            (*i)++;
+            char nextCh = (char)cleanCode[*i];
+            if (ch == specialSymbols[9]) {
+                switch (nextCh) {
+                    case '=':
+                        table[j].lexeme[1] = nextCh;
+                        break;
+                    case '>':
+                        table[j].lexeme[1] = nextCh;
+                        break;
+                    default:
+                        // do nothing
+                        break;
+                }
+            }
+            if (ch == specialSymbols[10]) {
+                switch (nextCh) {
+                    case '=':
+                        table[j].lexeme[1] = nextCh;
+                        break;
+                    default:
+                        // do nothing
+                        break;
+                }
+            }
+            if (ch == specialSymbols[12]) {
+                switch (nextCh) {
+                    case '=':
+                        table[j].lexeme[1] = nextCh;
+                        break;
+                    default:
+                        printf("Invalid symbol. %c is not a symbol.\n", specialSymbols[12]);
+                        break;
+                }
+            }
+            j++;
+        }
+        else {
+            int length = (int)strlen(tempString);
+            tempString[length] =  ch;
+            tempString[length+1] = '\0';
+            int nextIndex = *i + 1;
+            char nextChar = cleanCode[nextIndex];
+            if ( !( (nextChar >= '0' && nextChar <= '9') || (nextChar >= 'a' && nextChar <= 'z') ||
+                 (nextChar >= 'A' && nextChar <= 'Z') ) ) {
+                break;
+            }
+        }
+        (*i)++;
+        ch = cleanCode[*i];
     }
-    printf("%s", tempString);
+    if (strcmp(tempString, "")) {
+        j = TempStringFunc(tempString, j);
+    }
+    return j;
 }
 
+int TempStringFunc(char tempString[], int j) {
+    int flag = 0;
+    if (tempString[0] >= '0' && tempString[0] <= '9') {
+        if ((tempString[1] >= 'a' && tempString[1] <= 'z') ||
+            (tempString[1] >= 'A' && tempString[1] <= 'Z')) {
+            printf("Variable does not start with letter.\n");
+        }
+        for (int i=1; i<strlen(tempString); i++) {
+            if (!(tempString[i] >= '0' && tempString[i] <= '9')) {
+                flag = 1;
+                printf("Number can't contain other characters.\n");
+            }
+        }
+        if (flag == 0) {
+            for (int i=0; i<strlen(tempString); i++) {
+                table[j].lexeme[i] = tempString[i];
+            }
+            table[j].tokenType = numbersym;
+            j++;
+        }
+    }
+    else {
+        for (int i=0; i<strlen(tempString); i++) {
+            table[j].lexeme[i] = tempString[i];
+        }
+        j++;
+    }
+    return j;
+}
 
+void GetTokenType(int j) {
+    printf("\n\n");
+    for (int i=0; i<j; i++) {
+        // const
+        if (strcmp(table[i].lexeme, reservedWords[0]) == 0) {
+            table[i].tokenType = constsym;
+        }
+        
+        // var
+        else if (strcmp(table[i].lexeme, reservedWords[1]) == 0) {
+            table[i].tokenType = varsym;
+        }
+        
+        // procedure
+        else if (strcmp(table[i].lexeme, reservedWords[2]) == 0) {
+            table[i].tokenType = procsym;
+        }
+        
+        // call
+        else if (strcmp(table[i].lexeme, reservedWords[3]) == 0) {
+            table[i].tokenType = callsym;
+        }
+        
+        // begin
+        else if (strcmp(table[i].lexeme, reservedWords[4]) == 0) {
+            table[i].tokenType = beginsym;
+            //printf("%s : %d\n", table[i].lexeme, table[i].tokenType);
+        }
+        
+        // end
+        else if (strcmp(table[i].lexeme, reservedWords[5]) == 0) {
+            table[i].tokenType = endsym;
+        }
+        
+        // if
+        else if (strcmp(table[i].lexeme, reservedWords[6]) == 0) {
+            table[i].tokenType = ifsym;
+        }
+        
+        // then
+        else if (strcmp(table[i].lexeme, reservedWords[7]) == 0) {
+            table[i].tokenType = thensym;
+        }
+        
+        // else
+        else if (strcmp(table[i].lexeme, reservedWords[8]) == 0) {
+            table[i].tokenType = elsesym;
+        }
+        
+        // while
+        else if (strcmp(table[i].lexeme, reservedWords[9]) == 0) {
+            table[i].tokenType = whilesym;
+        }
+        
+        // do
+        else if (strcmp(table[i].lexeme, reservedWords[10]) == 0) {
+            table[i].tokenType = dosym;
+        }
+        
+        // read
+        else if (strcmp(table[i].lexeme, reservedWords[11]) == 0) {
+            table[i].tokenType = readsym;
+        }
+        
+        // write
+        else if (strcmp(table[i].lexeme, reservedWords[12]) == 0) {
+            table[i].tokenType = writesym;
+        }
+        
+        // odd
+        else if (strcmp(table[i].lexeme, reservedWords[13]) == 0) {
+            table[i].tokenType = oddsym;
+        }
+        
+        // +
+        else if (strcmp(table[i].lexeme, "+") == 0) {
+            table[i].tokenType = plussym;
+        }
+        
+        // -
+        else if (strcmp(table[i].lexeme, "-") == 0) {
+            table[i].tokenType = minussym;
+        }
+        
+        // *
+        else if (strcmp(table[i].lexeme, "*") == 0) {
+            table[i].tokenType = multsym;
+        }
+        
+        // /
+        else if (strcmp(table[i].lexeme, "/") == 0) {
+            table[i].tokenType = slashsym;
+        }
+        
+        // (
+        else if (strcmp(table[i].lexeme, "(") == 0) {
+            table[i].tokenType = lparentsym;
+        }
+        
+        // )
+        else if (strcmp(table[i].lexeme, ")") == 0) {
+            table[i].tokenType = rparentsym;
+        }
+        
+        // =
+        else if (strcmp(table[i].lexeme, "=") == 0) {
+            table[i].tokenType = eqlsym;
+        }
+        
+        // ,
+        else if (strcmp(table[i].lexeme, ",") == 0) {
+            table[i].tokenType = commasym;
+        }
+        
+        // .
+        else if (strcmp(table[i].lexeme, ".") == 0) {
+            table[i].tokenType = periodsym;
+        }
+        
+        // <
+        else if (strcmp(table[i].lexeme, "<") == 0) {
+            table[i].tokenType = lessym;
+        }
+        
+        // >
+        else if (strcmp(table[i].lexeme, ">") == 0) {
+            table[i].tokenType = gtrsym;
+        }
+        
+        // ;
+        else if (strcmp(table[i].lexeme, ";") == 0) {
+            table[i].tokenType = semicolonsym;
+        }
+        
+        // :=
+        else if (strcmp(table[i].lexeme, ":=") == 0) {
+            table[i].tokenType = becomessym;
+        }
+        
+        // <=
+        else if (strcmp(table[i].lexeme, "<=") == 0) {
+            table[i].tokenType = leqsym;
+        }
+        
+        // >=
+        else if (strcmp(table[i].lexeme, ">=") == 0) {
+            table[i].tokenType = geqsym;
+        }
+        
+        // <>
+        else if (strcmp(table[i].lexeme, "<>") == 0) {
+            table[i].tokenType = neqsym;
+        }
+        
+        // ident
+        else if (!(table[i].lexeme[0] >= '0' && table[i].lexeme[0] <= '9')) {
+            table[i].tokenType = identsym;
+        }
+    }
+}
 
 
 
