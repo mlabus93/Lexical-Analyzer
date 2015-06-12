@@ -16,10 +16,10 @@
 
 char* ReadFile(FILE* input, int fileSize, char *code);
 void CheckForComment(int fileSize, FILE* cleanInput);
-void ReadTokens(int cleanFileSize);
 int Tokens(int cleanFileSize, int *i, int j);
 int TempStringFunc(char tempString[], int j);
 void GetTokenType(int j);
+void ErrorHandling(FILE* lexemeTable, FILE* lexemeList, int error);
 
 typedef enum {
     nulsym = 1, identsym = 2, numbersym = 3, plussym = 4, minussym = 5,
@@ -41,7 +41,11 @@ char *code, *cleanCode;
 string reservedWords[14];
 char specialSymbols[13];
 tokenTable *table;
+int error = 0;
+string tempStringError;
 
+// File pointers
+FILE *input, *cleanInput, *lexemeTable, *lexemeList;
 
 int main(int argc, const char * argv[]) {
     
@@ -75,14 +79,18 @@ int main(int argc, const char * argv[]) {
     specialSymbols[12] = ':';
     
     
-    // File pointers
-    FILE *input, *cleanInput, *lexemeTable, *lexemeList;
+
     
     // File sizes
     int fileSize, cleanFileSize;
     
     // Open input file
     input = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/input.txt", "r");
+    
+    // Open files for writing
+    lexemeTable = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemetable.txt", "w");
+    lexemeList = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemeList.txt", "w");
+    
     
     // Read to file end for length of file
     fseek(input, 0L, SEEK_END);
@@ -99,9 +107,6 @@ int main(int argc, const char * argv[]) {
     
     // Reset pointer to beginning of file for scanning
     fseek(input, 0L, SEEK_SET);
-    
-    // Debugging code
-    //printf("%d\n", fileSize);
     
     // Read file into array
     ReadFile(input, fileSize, code);
@@ -162,10 +167,6 @@ int main(int argc, const char * argv[]) {
     // Get token syms
     GetTokenType(j);
     
-    // Open files for writing
-    lexemeTable = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemetable.txt", "w");
-    lexemeList = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemeList.txt", "w");
-    
     // Write to lexeme table file
     fprintf(lexemeTable, "lexeme    token type\n");
     for (int k=0; k<j; k++) {
@@ -188,6 +189,8 @@ int main(int argc, const char * argv[]) {
     fclose(lexemeTable);
     fclose(lexemeList);
     
+    // Console output to mimic files
+    printf("LEXEME TABLE\n");
     printf("lexeme    token type\n");
     for (int k=0; k<j; k++) {
         printf("%s", table[k].lexeme);
@@ -196,6 +199,7 @@ int main(int argc, const char * argv[]) {
     }
     
     printf("\n");
+    printf("LEXEME LIST\n");
     for (int k=0; k<j; k++) {
         if (table[k].tokenType == 2) {
             printf("%d %s ", table[k].tokenType, table[k].lexeme);
@@ -273,22 +277,6 @@ void CheckForComment(int fileSize, FILE* cleanInput) {
     }
 }
 
-void ReadTokens(int cleanFileSize) {
-    char ch;
-    int savedIndex;
-    for (int i=0; i<cleanFileSize; i++)
-    {
-        ch = cleanCode[i];
-        
-        if (ch == '\n' | ch == '\t' | ch == ' ' | ch == '\377') {
-            break;
-            savedIndex = i + 1;
-        }
-        else {
-        }
-    }
-}
-
 int Tokens(int cleanFileSize, int *i, int j) {
     //printf("\n");
     char tempString[IDENTIFIER_MAX_LENGTH+1] = "";
@@ -334,7 +322,9 @@ int Tokens(int cleanFileSize, int *i, int j) {
                         table[j].lexeme[1] = nextCh;
                         break;
                     default:
-                        printf("Invalid symbol. %c is not a symbol.\n", specialSymbols[12]);
+                        error = 4;
+                        ErrorHandling(lexemeTable, lexemeList, error);
+                        printf("ERROR: Invalid symbol. %c is not a symbol.\n", specialSymbols[12]);
                         break;
                 }
             }
@@ -342,19 +332,28 @@ int Tokens(int cleanFileSize, int *i, int j) {
         }
         else {
             int length = (int)strlen(tempString);
-            tempString[length] =  ch;
-            tempString[length+1] = '\0';
-            int nextIndex = *i + 1;
-            char nextChar = cleanCode[nextIndex];
-            if ( !( (nextChar >= '0' && nextChar <= '9') || (nextChar >= 'a' && nextChar <= 'z') ||
-                 (nextChar >= 'A' && nextChar <= 'Z') ) ) {
-                break;
+            if (length < 11) {
+                tempString[length] =  ch;
+                tempString[length+1] = '\0';
+                int nextIndex = *i + 1;
+                char nextChar = cleanCode[nextIndex];
+                if ( !( (nextChar >= '0' && nextChar <= '9') || (nextChar >= 'a' && nextChar <= 'z') ||
+                        (nextChar >= 'A' && nextChar <= 'Z') ) ) {
+                    break;
+                }
+            }
+            else {
+                error = 1;
+                tempStringError = tempString;
+                ErrorHandling(lexemeTable, lexemeList, error);
+                printf("\nERROR: Variable name %s<val> is too long.\n", tempString);
+                return j;
             }
         }
         (*i)++;
         ch = cleanCode[*i];
     }
-    if (strcmp(tempString, "")) {
+    if (!(strcmp(tempString, "") == 0)) {
         j = TempStringFunc(tempString, j);
     }
     return j;
@@ -365,12 +364,19 @@ int TempStringFunc(char tempString[], int j) {
     if (tempString[0] >= '0' && tempString[0] <= '9') {
         if ((tempString[1] >= 'a' && tempString[1] <= 'z') ||
             (tempString[1] >= 'A' && tempString[1] <= 'Z')) {
-            printf("Variable does not start with letter.\n");
+            error = 2;
+            tempStringError = tempString;
+            ErrorHandling(lexemeTable, lexemeList, error);
+            printf("ERROR: Variable %s<val> can't start with letter.\n", tempString);
+            return 0;
         }
         for (int i=1; i<strlen(tempString); i++) {
             if (!(tempString[i] >= '0' && tempString[i] <= '9')) {
                 flag = 1;
-                printf("Number can't contain other characters.\n");
+                error = 3;
+                ErrorHandling(lexemeTable, lexemeList, error);
+                printf("ERROR: Number can't contain other characters.\n");
+                return 0;
             }
         }
         if (flag == 0) {
@@ -551,5 +557,28 @@ void GetTokenType(int j) {
     }
 }
 
-
+void ErrorHandling(FILE* lexemeTable, FILE* lexemeList, int error) {
+    switch (error) {
+        case 0:
+            fprintf(lexemeTable, "No Errors.\n");
+            fprintf(lexemeList, "No Errors.\n");
+            break;
+        case 1:
+            fprintf(lexemeTable, "ERROR: Variable name %s<val> is too long.\n\n", tempStringError);
+            fprintf(lexemeList, "ERROR: Variable name %s<val> is too long.\n\n", tempStringError);
+            break;
+        case 2:
+            fprintf(lexemeTable, "ERROR: Variable %s<val> can't start with letter.\n", tempStringError);
+            fprintf(lexemeList, "ERROR: Variable %s<val> can't start with letter.\n", tempStringError);
+            break;
+        case 3:
+            fprintf(lexemeTable, "ERROR: Number can't contain other characters.\n\n");
+            fprintf(lexemeList, "ERROR: Number can't contain other characters.\n\n");
+            break;
+        case 4:
+            fprintf(lexemeTable, "ERROR: Invalid symbol. %c is not a symbol.\n\n", specialSymbols[12]);
+            fprintf(lexemeList, "ERROR: Invalid symbol. %c is not a symbol.\n\n", specialSymbols[12]);
+            break;
+    }
+}
 
