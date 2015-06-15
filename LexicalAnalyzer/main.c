@@ -2,7 +2,7 @@
 //  main.c
 //  LexicalAnalyzer
 //
-//  Created by Michael Labus on 6/8/15.
+//  Created by Michael Labus and Ryan Gonyon on 6/8/15.
 //  Copyright (c) 2015 Michael Labus. All rights reserved.
 //
 
@@ -86,10 +86,17 @@ int main(int argc, const char * argv[]) {
     
     // Open input file
     input = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/input.txt", "r");
+    //input = fopen(argv[1], "r");
+    
+    // Open file to write to without comments
+    cleanInput = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/cleaninput.txt", "w");
+    //cleanInput = fopen(argv[2], "w");
     
     // Open files for writing
     lexemeTable = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemetable.txt", "w");
+    //lexemeTable = fopen(argv[3], "w");
     lexemeList = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/lexemeList.txt", "w");
+    //lexemeList = fopen(argv[4], "w");
     
     
     // Read to file end for length of file
@@ -117,8 +124,6 @@ int main(int argc, const char * argv[]) {
     // Debugging code
     printf("\n\n");
     
-    // Open file to write to without comments
-    cleanInput = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/cleaninput.txt", "w");
     
     //  Output cleanInput file that removes comments
     CheckForComment(fileSize, cleanInput);
@@ -128,6 +133,7 @@ int main(int argc, const char * argv[]) {
     
     // Open clean input for reading
     cleanInput = fopen("/Users/michaellabus/Documents/School/Summer2015/SystemsSoftware/LexicalAnalyzer/LexicalAnalyzer/cleaninput.txt", "r");
+    //cleanInput = fopen(argv[2], "r");
     
     // Read to file end for length
     fseek(cleanInput, 0L, SEEK_END);
@@ -180,12 +186,16 @@ int main(int argc, const char * argv[]) {
         if (table[k].tokenType == 2) {
             fprintf(lexemeList, "%d %s ", table[k].tokenType, table[k].lexeme);
         }
+        else if (table[k].tokenType == 3) {
+            fprintf(lexemeList, "%d %s ", table[k].tokenType, table[k].lexeme);
+        }
         else {
             fprintf(lexemeList, "%d ", table[k].tokenType);
         }
     }
     
     // Close files
+    fclose(cleanInput);
     fclose(lexemeTable);
     fclose(lexemeList);
     
@@ -202,6 +212,9 @@ int main(int argc, const char * argv[]) {
     printf("LEXEME LIST\n");
     for (int k=0; k<j; k++) {
         if (table[k].tokenType == 2) {
+            printf("%d %s ", table[k].tokenType, table[k].lexeme);
+        }
+        else if (table[k].tokenType == 3) {
             printf("%d %s ", table[k].tokenType, table[k].lexeme);
         }
         else {
@@ -281,7 +294,7 @@ int Tokens(int cleanFileSize, int *i, int j) {
     //printf("\n");
     char tempString[IDENTIFIER_MAX_LENGTH+1] = "";
     char ch = cleanCode[*i];
-    while (ch != ' ' && ch != '\0' && ch != '\n' && ch != '\377') {
+    while (ch != ' ' && ch != '\0' && ch != '\n' && ch != '\377' && ch != '\r' && ch != '\t') {
         if (ch == specialSymbols[0] || ch == specialSymbols[1] || ch == specialSymbols[2] ||
             ch == specialSymbols[3] || ch == specialSymbols[4] || ch == specialSymbols[5] ||
             ch == specialSymbols[7] || ch == specialSymbols[8] || ch == specialSymbols[11]) {

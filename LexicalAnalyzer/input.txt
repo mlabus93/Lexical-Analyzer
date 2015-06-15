@@ -1,5 +1,1 @@
-var x, y;
-begin
-    y := 3; /* This is a comment */
-    x := y + 56;
-end.
+var x, y;beginy := 3; /* This is a comment */x := y + 56;end.
